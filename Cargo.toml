@@ -1,0 +1,25 @@
+[package]
+name = "silithium"
+version = "0.0.1"
+edition = "2024"
+rust-version = "1.85"
+authors = ["Thomas <tom@unebaguette.fr>"]
+description = "Silithium is a hybrid signature combining EC-Schnorr (or ECDSA) with ML-DSA"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+repository = "https://github.com/UneBaguette/silithium"
+keywords = ["silithium", "cryptography", "signature"]
+categories = ["cryptography"]
+
+[features]
+default = []
+zeroize = ["ml-dsa/zeroize", "dep:zeroize"]
+
+[dependencies]
+ml-dsa = { version = "0.1.0-rc", default-features = true, features = ["rand_core"] }
+p256 = { version = "0.14.0-rc", default-features = false, features = ["arithmetic", "getrandom"] }
+sha3 = { version = "0.11", default-features = false }
+getrandom = { version = "0.4", features = ["sys_rng"] }
+
+# optional
+zeroize = { version = "1", optional = true, default-features = false }
