@@ -16,7 +16,7 @@ default = []
 zeroize = ["ml-dsa/zeroize", "dep:zeroize"]
 
 [dependencies]
-ml-dsa = { version = "0.1.0-rc", default-features = true, features = ["rand_core"] }
+ml-dsa = { version = "0.1.0-rc.11", default-features = true, features = ["rand_core"] }
 p256 = { version = "0.14.0-rc", default-features = false, features = ["arithmetic", "getrandom"] }
 sha3 = { version = "0.11", default-features = false }
 getrandom = { version = "0.4", features = ["sys_rng"] }
