@@ -1,64 +1,146 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 // Copyright 2026 Thomas <tom@unebaguette.fr>
 
-use ml_dsa::Generate;
+//! Silithium: a compact, non-separable hybrid signature scheme combining
+//! EC-Schnorr and ML-DSA via fused Fiat-Shamir.
+//!
+//! Reference: Devevey, Guerreau, Roméas - "Compact, Efficient and Non-Separable
+//! Hybrid Signatures" (ePrint 2025/2059).
+
 use getrandom::{SysRng, rand_core::UnwrapErr};
 use ml_dsa::signature::Keypair;
+use ml_dsa::{Generate, MlDsa44};
 use p256::elliptic_curve::sec1::ToSec1Point;
 use shake::digest::{ExtendableOutput, Update, XofReader};
 
+/// Silithium signing key containing both EC and ML-DSA components.
 pub struct SigningKey {
-    // EC-Schnorr
+    /// EC-Schnorr secret scalar
     sk1: p256::SecretKey,
+    /// EC-Schnorr public key
     vk1: p256::PublicKey,
-    // ML-DSA
-    sk2: ml_dsa::ExpandedSigningKey<ml_dsa::MlDsa44>,
-    vk2: ml_dsa::VerifyingKey<ml_dsa::MlDsa44>,
-    // Precomputed
+    /// ML-DSA expanded signing key
+    sk2: ml_dsa::ExpandedSigningKey<MlDsa44>,
+    /// ML-DSA verifying key
+    vk2: ml_dsa::VerifyingKey<MlDsa44>,
+    /// Precomputed tr = SHAKE256(vk1 || vk2, 512)
     tr: [u8; 64],
 }
 
+/// Silithium verifying key containing both EC and ML-DSA public components.
+#[derive(Clone, Debug)]
 pub struct VerifyingKey {
+    /// EC-Schnorr public key
     vk1: p256::PublicKey,
-    vk2: ml_dsa::VerifyingKey<ml_dsa::MlDsa44>,
+    /// ML-DSA verifying key
+    vk2: ml_dsa::VerifyingKey<MlDsa44>,
+    /// Precomputed tr = SHAKE256(vk1 || vk2, 512)
     tr: [u8; 64],
 }
 
+/// Silithium signature: the ML-DSA signature (containing c̃, z, h) plus
+/// the Schnorr response scalar x.
 pub struct Signature {
-    ml_dsa_sig: ml_dsa::Signature<ml_dsa::MlDsa44>,
+    /// Full ML-DSA signature (c̃ || z || h in encoded form)
+    ml_dsa_sig: ml_dsa::Signature<MlDsa44>,
+    /// Schnorr response: x = r + sk1 · c̃ mod n
     x: p256::Scalar,
 }
 
-pub fn generate_keypair() -> SigningKey {
-    let sk1 = p256::SecretKey::generate();
-    let vk1 = sk1.public_key();
+impl SigningKey {
+    /// Generate a fresh Silithium-44 keypair.
+    pub fn generate() -> Self {
+        let sk1 = p256::SecretKey::generate();
+        let vk1 = sk1.public_key();
 
-    let key: ml_dsa::SigningKey<ml_dsa::MlDsa44> = Generate::generate_from_rng(&mut UnwrapErr(SysRng));
+        let ml_dsa_key: ml_dsa::SigningKey<MlDsa44> =
+            Generate::generate_from_rng(&mut UnwrapErr(SysRng));
 
-    let sk2= key.expanded_key().clone();
-    let vk2 = key.verifying_key();
+        let sk2 = ml_dsa_key.expanded_key().clone();
+        let vk2 = ml_dsa_key.verifying_key();
 
+        let tr = compute_tr(&vk1, &vk2);
+
+        Self {
+            sk1,
+            vk1,
+            sk2,
+            vk2,
+            tr,
+        }
+    }
+
+    /// Derive the corresponding [`VerifyingKey`].
+    pub fn verifying_key(&self) -> VerifyingKey {
+        VerifyingKey {
+            vk1: self.vk1,
+            vk2: self.vk2.clone(),
+            tr: self.tr,
+        }
+    }
+
+    /// Access the precomputed `tr` value.
+    pub fn tr(&self) -> &[u8; 64] {
+        &self.tr
+    }
+}
+
+impl VerifyingKey {
+    /// Access the EC public key.
+    pub fn ec_key(&self) -> &p256::PublicKey {
+        &self.vk1
+    }
+
+    /// Access the ML-DSA verifying key.
+    pub fn ml_dsa_key(&self) -> &ml_dsa::VerifyingKey<MlDsa44> {
+        &self.vk2
+    }
+
+    /// Access the precomputed `tr` value.
+    pub fn tr(&self) -> &[u8; 64] {
+        &self.tr
+    }
+}
+
+impl Signature {
+    /// Access the ML-DSA signature component.
+    pub fn ml_dsa_sig(&self) -> &ml_dsa::Signature<MlDsa44> {
+        &self.ml_dsa_sig
+    }
+
+    /// Access the Schnorr response scalar.
+    pub fn x(&self) -> &p256::Scalar {
+        &self.x
+    }
+
+    /// Extract `c_tilde` from the encoded ML-DSA signature.
+    /// Per FIPS 204, the signature encoding is c̃ || z || h,
+    /// so the first Lambda bytes (32 for MlDsa44) are c̃.
+    pub fn c_tilde(&self) -> [u8; 32] {
+        use ml_dsa::signature::SignatureEncoding;
+        let bytes = <ml_dsa::Signature<MlDsa44>>::to_bytes(&self.ml_dsa_sig);
+        let mut c = [0u8; 32];
+
+        c.copy_from_slice(&bytes[..32]);
+
+        c
+    }
+}
+
+/// Compute tr = SHAKE256(vk1_uncompressed || vk2_encoded, 512 bits).
+fn compute_tr(vk1: &p256::PublicKey, vk2: &ml_dsa::VerifyingKey<MlDsa44>) -> [u8; 64] {
     let vk1_bytes = vk1.to_sec1_point(false);
     let vk2_bytes = vk2.encode();
 
-    let vk1_result = vk1_bytes.as_bytes();
+    let mut hasher = shake::Shake256::default();
 
-    let mut tr = shake::Shake256::default();
+    hasher.update(vk1_bytes.as_bytes());
+    hasher.update(&vk2_bytes);
 
-    tr.update(&vk1_result);
-    tr.update(&vk2_bytes);
-
-    let mut tr_reader = tr.finalize_xof();
-
+    let mut reader = hasher.finalize_xof();
     let mut tr = [0u8; 64];
 
-    tr_reader.read(tr.as_mut());
+    reader.read(&mut tr);
 
-    SigningKey {
-        sk1,
-        vk1,
-        sk2,
-        vk2,
-        tr
-    }
+    tr
 }
