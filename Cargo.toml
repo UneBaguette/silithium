@@ -15,12 +15,13 @@ categories = ["cryptography"]
 default = ["schnorr"]
 schnorr = []
 ecdsa = ["p256/ecdsa"]
-zeroize = ["ml-dsa/zeroize", "dep:zeroize"]
+zeroize = ["ml-dsa/zeroize", "shake/zeroize", "hybrid-array/zeroize", "dep:zeroize"]
 
 [dependencies]
 ml-dsa = { version = "0.1.0", default-features = true, features = ["rand_core"] }
 p256 = { version = "0.14.0-rc", default-features = false, features = ["arithmetic", "getrandom"] }
-shake = { version = "0.1", default-features = false, features = ["zeroize"] }
+shake = { version = "0.1", default-features = false }
+hybrid-array = "0.4"
 getrandom = { version = "0.4", features = ["sys_rng"] }
 
 # optional

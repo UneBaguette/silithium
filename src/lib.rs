@@ -8,9 +8,12 @@
 //! Hybrid Signatures" (ePrint 2025/2059).
 
 use getrandom::{SysRng, rand_core::UnwrapErr};
+use hybrid_array::Array;
+use hybrid_array::typenum::U64;
 use ml_dsa::signature::Keypair;
 use ml_dsa::{Generate, MlDsa44};
 use p256::elliptic_curve::sec1::ToSec1Point;
+use p256::{NonZeroScalar, ProjectivePoint};
 use shake::digest::{ExtendableOutput, Update, XofReader};
 
 /// Silithium signing key containing both EC and ML-DSA components.
@@ -43,7 +46,7 @@ pub struct VerifyingKey {
 pub struct Signature {
     /// Full ML-DSA signature (c̃ || z || h in encoded form)
     ml_dsa_sig: ml_dsa::Signature<MlDsa44>,
-    /// Schnorr response: x = r + sk1 · c̃ mod n
+    /// Schnorr response: x = r + sk1 . c̃ mod n
     x: p256::Scalar,
 }
 
@@ -68,6 +71,35 @@ impl SigningKey {
             vk2,
             tr,
         }
+    }
+
+    pub fn sign(&self, msg: &[u8]) -> Signature {
+        let nonce = NonZeroScalar::generate();
+        let nonce_point = (ProjectivePoint::GENERATOR * nonce.as_ref()).to_affine();
+
+        // µ = SHAKE256(tr || R || msg, 512)
+        let nonce_bytes = nonce_point.to_sec1_point(false);
+        let r_bytes = &nonce_bytes.as_bytes()[1..]; // X || Y brut
+        let mut hasher = shake::Shake256::default();
+
+        hasher.update(&self.tr);
+        hasher.update(r_bytes);
+        hasher.update(msg);
+
+        let mut reader = hasher.finalize_xof();
+        let mut mu = [0u8; 64];
+
+        reader.read(&mut mu);
+
+        // (z, c̃, h) = ML-DSA.Sign_mu(sk2, µ)
+        let mu: Array<u8, U64> = Array::from(mu); // mu: [u8; 64]
+        let ml_dsa_sig = self.sk2.sign_mu_deterministic(&mu);
+
+        // x = r + sk1 . c̃ mod n
+        // TODO: extraire c̃, convertir en Scalar, calculer x
+
+        todo!()
+        // return (ml_dsa_sig, x)
     }
 
     /// Derive the corresponding [`VerifyingKey`].
@@ -119,6 +151,7 @@ impl Signature {
     pub fn c_tilde(&self) -> [u8; 32] {
         use ml_dsa::signature::SignatureEncoding;
         let bytes = <ml_dsa::Signature<MlDsa44>>::to_bytes(&self.ml_dsa_sig);
+
         let mut c = [0u8; 32];
 
         c.copy_from_slice(&bytes[..32]);

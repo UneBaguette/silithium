@@ -548,6 +548,7 @@ name = "silithium"
 version = "0.0.1"
 dependencies = [
  "getrandom",
+ "hybrid-array",
  "ml-dsa",
  "p256",
  "shake",
