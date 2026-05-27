@@ -579,7 +579,7 @@ dependencies = [
 
 [[package]]
 name = "silithium"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "elliptic-curve",
  "getrandom",
