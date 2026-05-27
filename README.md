@@ -1,26 +1,37 @@
 # Silithium
 
-Silithium is a **hybrid digital signature scheme** combining the identification schemes underlying **EC-Schnorr** and **ML-DSA**.
 
-The current variant is only the **silithium-44**.
+Silithium is a **compact, non-separable hybrid digital signature scheme** combining EC-Schnorr and ML-DSA via fused Fiat-Shamir.
 
-## Current Variants
+Unlike simple concatenation, Silithium shares a single challenge across both components, producing signatures that are smaller, faster, and non-separable by construction.
 
-| Variant          | ML-DSA Variant | Curve | Signature Size |
-|------------------|----------------|-------|----------------|
-| **silithium-44** | ML-DSA-44      | P-256 | ~2420 + 32     |
+## Variants
 
-## Research Foundation
+| Variant          | ML-DSA    | Curve | Signature Size  |
+|------------------|-----------|-------|-----------------|
+| **Silithium-44** | ML-DSA-44 | P-256 | 2420 + 32 bytes |
+| **Silithium-65** | ML-DSA-65 | P-384 | 3309 + 48 bytes |
+| **Silithium-87** | ML-DSA-87 | P-521 | 4627 + 66 bytes |
+## Usage
 
-This implementation is based on the paper:
-[**Compact, Efficient and Non-Separable Hybrid Signatures**](https://ia.cr/2025/2059)
+```rust
+use silithium::{SigningKey, Silithium44};
 
-(Submitted to IACR, 2025)
+let sk = SigningKey::::generate();
+let vk = sk.verifying_key();
 
-## Acknowledgments
+let sig = sk.sign(b"hello silithium");
+assert!(vk.verify(b"hello silithium", &sig));
+```
 
-- IACR researchers for the foundational hybrid signature framework.
-- The cryptographic community for open-source tools and standards.
+## Security Warning
+
+⚠️ **This is experimental software. Not audited for production use.**
+
+## Reference / Resources
+
+Based on: [**Compact, Efficient and Non-Separable Hybrid Signatures**](https://ia.cr/2025/2059)
+by Devevey, Guerreau, and Roméas (ANSSI / PQShield, 2025).
 
 ## License
 
