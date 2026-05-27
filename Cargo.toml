@@ -14,15 +14,22 @@ categories = ["cryptography"]
 [features]
 default = ["schnorr"]
 schnorr = []
-ecdsa = ["p256/ecdsa"]
+ecdsa = ["p256/ecdsa", "p384/ecdsa", "p521/ecdsa"]
 zeroize = ["ml-dsa/zeroize", "shake/zeroize", "hybrid-array/zeroize", "dep:zeroize"]
 
 [dependencies]
 ml-dsa = { version = "0.1.0", default-features = true, features = ["rand_core"] }
-p256 = { version = "0.14.0-rc", default-features = false, features = ["arithmetic", "getrandom"] }
+elliptic-curve = { version = "0.14.0-rc.32", default-features = false, features = ["arithmetic", "getrandom"] }
+p256 = { version = "0.14.0-rc.9", default-features = false, features = ["arithmetic", "getrandom"] }
+p384 = { version = "0.14.0-rc.9", default-features = false, features = ["arithmetic", "getrandom"] }
+p521 = { version = "0.14.0-rc.9", default-features = false, features = ["arithmetic", "getrandom"] }
 shake = { version = "0.1", default-features = false }
 hybrid-array = "0.4"
 getrandom = { version = "0.4", features = ["sys_rng"] }
+signature = { version = "3", default-features = false }
 
 # optional
 zeroize = { version = "1", optional = true, default-features = false }
+
+[profile.test]
+opt-level = 1
