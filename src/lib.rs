@@ -182,7 +182,7 @@ where
         let sig_bytes = ml_dsa_sig.encode();
 
         let c_tilde_bytes = &sig_bytes[..P::LAMBDA];
-        let c_scalar = P::reduce_c_tilde(&c_tilde_bytes);
+        let c_scalar = P::reduce_c_tilde(c_tilde_bytes);
 
         let sk1_scalar = *self.sk1.to_nonzero_scalar();
 
