@@ -1,6 +1,6 @@
 [package]
 name = "silithium"
-version = "0.0.2"
+version = "0.1.0-pre.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Thomas <tom@unebaguette.fr>"]
@@ -8,7 +8,7 @@ description = "Silithium is a hybrid signature combining EC-Schnorr (or ECDSA) w
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/UneBaguette/silithium"
-keywords = ["silithium", "cryptography", "signature"]
+keywords = ["silithium", "cryptography", "signature", "hybrid", "post-quantum"]
 categories = ["cryptography"]
 
 [features]
