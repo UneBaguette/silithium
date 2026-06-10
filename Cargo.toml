@@ -22,7 +22,7 @@ ml-dsa = { version = "0.1.1", default-features = true, features = ["rand_core"] 
 elliptic-curve = { version = "0.14.0-rc.32", default-features = false, features = ["arithmetic", "getrandom"] }
 p256 = { version = "0.14.0-rc.9", default-features = false, features = ["arithmetic", "getrandom"] }
 p384 = { version = "0.14.0-rc.9", default-features = false, features = ["arithmetic", "getrandom"] }
-p521 = { version = "0.14.0-rc.9", default-features = false, features = ["arithmetic", "getrandom"] }
+p521 = { version = "0.14.0-rc.10", default-features = false, features = ["arithmetic", "getrandom"] }
 shake = { version = "0.1", default-features = false }
 hybrid-array = "0.4"
 getrandom = { version = "0.4", features = ["sys_rng"] }
