@@ -4,32 +4,36 @@ version = "0.1.0-pre.0"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Thomas <tom@unebaguette.fr>"]
-description = "Silithium is a hybrid signature combining EC-Schnorr (or ECDSA) with ML-DSA"
+description = """
+Silithium: a non-separable hybrid digital signature scheme combining
+EC-Schnorr and ML-DSA via fused Fiat-Shamir, as described in
+ePrint 2025/2059 (ANSSI / PQShield).
+"""
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 repository = "https://github.com/UneBaguette/silithium"
-keywords = ["silithium", "cryptography", "signature", "hybrid", "post-quantum"]
+keywords = ["crypto", "signature", "hybrid", "post-quantum"]
 categories = ["cryptography"]
 
 [features]
 default = ["schnorr"]
 schnorr = []
-ecdsa = ["p256/ecdsa", "p384/ecdsa", "p521/ecdsa"]
+# ecdsa = ["p256/ecdsa", "p384/ecdsa", "p521/ecdsa"]
 zeroize = ["ml-dsa/zeroize", "shake/zeroize", "hybrid-array/zeroize", "dep:zeroize"]
 
 [dependencies]
-ml-dsa = { version = "0.1.1", default-features = true, features = ["rand_core"] }
-elliptic-curve = { version = "0.14.0-rc.32", default-features = false, features = ["arithmetic", "getrandom"] }
-p256 = { version = "0.14.0-rc.9", default-features = false, features = ["arithmetic", "getrandom"] }
-p384 = { version = "0.14.0-rc.9", default-features = false, features = ["arithmetic", "getrandom"] }
-p521 = { version = "0.14.0-rc.9", default-features = false, features = ["arithmetic", "getrandom"] }
+ml-dsa = { version = "0.1", default-features = true, features = ["rand_core"] }
+elliptic-curve = { version = "0.14", default-features = false, features = ["arithmetic", "getrandom"] }
+p256 = { version = "0.14", default-features = false, features = ["arithmetic", "getrandom"] }
+p384 = { version = "0.14", default-features = false, features = ["arithmetic", "getrandom"] }
+p521 = { version = "0.14", default-features = false, features = ["arithmetic", "getrandom"] }
 shake = { version = "0.1", default-features = false }
-hybrid-array = "0.4"
 getrandom = { version = "0.4", features = ["sys_rng"] }
 signature = { version = "3", default-features = false }
+hybrid-array = "0.4"
 
 # optional
-zeroize = { version = "1", optional = true, default-features = false }
+zeroize = { version = "1", optional = true, default-features = false, features = ["derive"] }
 
 [profile.test]
 opt-level = 1
