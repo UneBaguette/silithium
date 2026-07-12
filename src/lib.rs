@@ -3,11 +3,7 @@
 
 #![no_std]
 #![forbid(unsafe_code)]
-#![warn(
-    clippy::pedantic,
-    missing_docs,
-    unused_qualifications
-)]
+#![warn(clippy::pedantic, missing_docs, unused_qualifications)]
 #![allow(clippy::module_name_repetitions)]
 
 //! # Silithium
@@ -60,6 +56,7 @@
 //!
 //! ```rust
 //! use silithium::{SigningKey, Silithium65};
+//! use silithium::Keypair;
 //!
 //! let sk = SigningKey::<Silithium65>::generate();
 //! let vk = sk.verifying_key();
@@ -90,10 +87,11 @@ use ml_dsa::Generate;
 use p256::elliptic_curve::ops::Reduce;
 use p256::elliptic_curve::sec1::ToSec1Point;
 use shake::digest::{ExtendableOutput, Update, XofReader};
-use signature::Keypair;
 
 #[cfg(feature = "zeroize")]
 use zeroize::Zeroize;
+
+pub use signature::Keypair;
 
 /// Errors returned by silithium operations.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -129,7 +127,7 @@ pub trait SilithiumParams {
     /// The elliptic curve.
     type Curve: CurveArithmetic + elliptic_curve::PrimeCurve;
 
-    /// Size of c_tilde in bytes (Lambda from ML-DSA parameter set)
+    /// Size of `c_tilde` in bytes (Lambda from ML-DSA parameter set)
     const LAMBDA: usize;
 
     /// Size of the EC scalar in bytes (signature overhead)
@@ -139,14 +137,14 @@ pub trait SilithiumParams {
     /// Size of the ML-DSA signature in bytes.
     const MLDSA_SIG_SIZE: usize;
 
-    /// Size of the SEC1 compressed EC point (SCALAR_SIZE + 1).
+    /// Size of the SEC1 compressed EC point (`SCALAR_SIZE` + 1).
     const EC_COMPRESSED_SIZE: usize = Self::SCALAR_SIZE + 1;
-    /// Total verifying key: EC_COMPRESSED_SIZE + MLDSA_VK_SIZE.
+    /// Total verifying key: `EC_COMPRESSED_SIZE` + `MLDSA_VK_SIZE`.
     const VERIFYING_KEY_SIZE: usize = Self::EC_COMPRESSED_SIZE + Self::MLDSA_VK_SIZE;
-    /// Total signature: MLDSA_SIG_SIZE + SCALAR_SIZE.
+    /// Total signature: `MLDSA_SIG_SIZE` + `SCALAR_SIZE`.
     const SIGNATURE_SIZE: usize = Self::MLDSA_SIG_SIZE + Self::SCALAR_SIZE;
 
-    /// Reduce c_tilde bytes to a scalar on the curve
+    /// Reduce `c_tilde` bytes to a scalar on the curve
     fn reduce_c_tilde(c_tilde: &[u8]) -> Scalar<Self::Curve>;
 
     /// Reduce arbitrary bytes to a scalar on the curve.
@@ -260,6 +258,7 @@ where
     FieldBytesSize<P::Curve>: ModulusSize,
 {
     /// Generate a fresh keypair from OS randomness.
+    #[must_use]
     pub fn generate() -> Self {
         let sk1 = SecretKey::generate();
         let vk1 = sk1.public_key();
@@ -287,6 +286,12 @@ where
     /// ec_seed    = SHAKE256("silithium-ec-key" || seed, scalar_size)
     /// mldsa_seed = SHAKE256("silithium-pq-key" || seed, 32)
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `ec_seed` reduces to zero modulo the curve order, which has
+    /// probability roughly `2^-256` and is not expected to occur in practice.
+    #[must_use]
     pub fn generate_from_seed(seed: &[u8; 32]) -> Self {
         let mut xof = shake::Shake256::default();
 
@@ -427,6 +432,11 @@ where
     }
 
     /// Decode from `ec_compressed || mldsa_vk`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if `bytes` is the wrong length or does not encode a
+    /// valid EC point / ML-DSA verifying key.
     pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() != P::VERIFYING_KEY_SIZE {
             return Err(Error::InvalidLength);
@@ -449,6 +459,11 @@ where
     }
 
     /// Verify a Silithium signature against a message.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if the signature fails to verify against `msg` under
+    /// this verifying key.
     pub fn verify(&self, msg: &[u8], sig: &Signature<P>) -> Result<(), Error> {
         // R = x*G - c*vk1
         let c_tilde = sig.c_tilde();
@@ -525,6 +540,11 @@ impl<P: SilithiumParams> Signature<P> {
     }
 
     /// Decode from `mldsa_sig || ec_scalar`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error`] if `bytes` is the wrong length or does not encode a
+    /// valid ML-DSA signature / EC scalar.
     pub fn decode(bytes: &[u8]) -> Result<Self, Error> {
         if bytes.len() != P::SIGNATURE_SIZE {
             return Err(Error::InvalidLength);
@@ -562,7 +582,7 @@ impl<P: SilithiumParams> Signature<P> {
 
     /// Extract `c_tilde` from the encoded ML-DSA signature.
     /// Per FIPS 204, the signature encoding is c̃ || z || h,
-    /// so the first Lambda bytes (32 for MlDsa44) are c̃.
+    /// so the first Lambda bytes (32 for `MlDsa44`) are c̃.
     pub(crate) fn c_tilde(&self) -> Vec<u8> {
         use signature::SignatureEncoding;
 
@@ -572,7 +592,7 @@ impl<P: SilithiumParams> Signature<P> {
     }
 }
 
-/// Compute tr = SHAKE256(vk1_uncompressed || vk2_encoded, 512 bits).
+/// Compute tr = SHAKE256(`vk1_uncompressed` || `vk2_encoded`, 512 bits).
 fn compute_tr<P>(vk1: &PublicKey<P::Curve>, vk2: &ml_dsa::VerifyingKey<P::MlDsa>) -> [u8; 64]
 where
     P: SilithiumParams,
