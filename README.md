@@ -11,11 +11,29 @@ by **Devevey**, **Guerreau**, and **Roméas** (**ANSSI** / **PQShield**, 2025).
 
 ## Parameter sets
 
-| Variant      | EC curve | ML-DSA    | Classical | Post-quantum | VK size | Sig size |
-|--------------|----------|-----------|-----------|--------------|---------|----------|
-| Silithium-44 | P-256    | ML-DSA-44 | 128-bit   | NIST Level 2 | 1 345 B | 2 452 B  |
-| Silithium-65 | P-384    | ML-DSA-65 | 192-bit   | NIST Level 3 | 2 001 B | 3 357 B  |
-| Silithium-87 | P-521    | ML-DSA-87 | 256-bit   | NIST Level 5 | 2 659 B | 4 693 B  |
+| Variant      | Curve | ML-DSA    | Security              | VK     | Sig    |
+|--------------|-------|-----------|-----------------------|--------|--------|
+| Silithium-44 | P-256 | ML-DSA-44 | 128-bit, NIST Level 2 | 1.3 KB | 2.5 KB |
+| Silithium-65 | P-384 | ML-DSA-65 | 192-bit, NIST Level 3 | 2.0 KB | 3.4 KB |
+| Silithium-87 | P-521 | ML-DSA-87 | 256-bit, NIST Level 5 | 2.6 KB | 4.7 KB |
+
+### Wire sizes
+
+Verifying key = EC compressed point + ML-DSA verifying key.
+
+|    | EC point | ML-DSA VK | Total   |
+|----|----------|-----------|---------|
+| 44 | 33 B     | 1 312 B   | 1 345 B |
+| 65 | 49 B     | 1 952 B   | 2 001 B |
+| 87 | 67 B     | 2 592 B   | 2 659 B |
+
+Signature = ML-DSA signature + EC scalar.
+
+|    | ML-DSA sig | EC scalar | Total   |
+|----|------------|-----------|---------|
+| 44 | 2 420 B    | 32 B      | 2 452 B |
+| 65 | 3 309 B    | 48 B      | 3 357 B |
+| 87 | 4 627 B    | 66 B      | 4 693 B |
 
 ## Usage
 
@@ -49,19 +67,15 @@ let sig_bytes = sig.encode();
 let sig2 = Signature::::decode(&sig_bytes)?;
 ```
 
-
 ## How it works
 
-Both components share a challenge through a fused Fiat–Shamir transform:
+Both components share a single challenge `c̃` via fused Fiat–Shamir:
+the Schnorr nonce `R` is hashed into `µ = SHAKE256(tr ‖ R ‖ msg)`, which ML-DSA signs. 
 
-1. `tr = SHAKE256(vk1 || vk2, 512)` — bind both public keys
-2. `R = r·G` — Schnorr nonce commitment (random)
-3. `µ = SHAKE256(tr || R || msg, 512)` — fused message
-4. `(c̃, z, h) = ML-DSA.Sign(sk2, µ)` — ML-DSA signs µ
-5. `x = r + sk1·c̃ mod n` — Schnorr response using ML-DSA's challenge
-6. `σ = (mldsa_sig, x)` — composite signature
+The resulting `c̃` doubles as the Schnorr challenge. Verification recovers `R` from the
+Schnorr response and checks ML-DSA against the recomputed `µ`.
 
-The Schnorr component is verified implicitly: if `c̃` came from a different `R`, the recomputed `µ` won't match and ML-DSA verification fails. Neither component can be stripped nor verified independently.
+Neither component can be stripped nor verified independently.
 
 ## Features
 
